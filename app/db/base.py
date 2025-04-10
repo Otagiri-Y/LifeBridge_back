@@ -1,1 +1,3 @@
-# テーブルを作成したらコードを追加する
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
