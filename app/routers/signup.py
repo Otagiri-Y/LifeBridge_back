@@ -4,6 +4,7 @@ from app.models.user import User
 from app.schemas.user import UserCreate
 from app.auth.hash import hash_password
 from app.db.session import get_db
+from app.auth.auth_handler import create_access_token
 
 router = APIRouter()
 
@@ -33,4 +34,12 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    return {"message": "ユーザー登録が完了しました", "user_id": new_user.user_id}
+     # JWTトークン発行（emailベース or user_idベース）
+    access_token = create_access_token(data={"sub": str(new_user.user_id)})
+
+    return {
+        "message": "登録成功",
+        "user_id": new_user.user_id,
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
