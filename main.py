@@ -3,6 +3,7 @@ from fastapi.openapi.utils import get_openapi  # ← 追加
 from app.auth.auth_router import router as auth_router
 from app.routers.signup import router as signup_router
 from app.routers.company import router as company_router
+from app.routers.job_type import router as job_type_router
 
 app = FastAPI()
 
@@ -10,6 +11,7 @@ app = FastAPI()
 app.include_router(auth_router)
 app.include_router(signup_router)
 app.include_router(company_router)
+app.include_router(job_type_router)
 
 @app.get("/")
 def read_root():
