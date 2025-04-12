@@ -5,6 +5,7 @@ from app.routers.signup import router as signup_router
 from app.routers.company import router as company_router
 from app.routers.job_type import router as job_type_router
 from app.routers.job_type_detail import router as job_type_detail_router
+from app.routers.matching import router as matching_router
 
 app = FastAPI()
 
@@ -14,6 +15,7 @@ app.include_router(signup_router)
 app.include_router(company_router)
 app.include_router(job_type_router)
 app.include_router(job_type_detail_router)
+app.include_router(matching_router)
 
 @app.get("/")
 def read_root():

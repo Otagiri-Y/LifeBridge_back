@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Date
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 class User(Base):
@@ -13,3 +14,7 @@ class User(Base):
     last_company = Column(String)
     job_type = Column(String)
     job_type_detail = Column(String)
+
+    # 🔽 1対1リレーション
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False)
+    orientation = relationship("UserOrientation", back_populates="user", uselist=False)
