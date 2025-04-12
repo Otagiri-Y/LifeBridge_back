@@ -7,8 +7,18 @@ from app.routers.job_type import router as job_type_router
 from app.routers.job_type_detail import router as job_type_detail_router
 from app.routers.matching import router as matching_router
 from app.routers.search import router as search_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# CORSの設定（Next.js が localhost:3000 で動作している前提）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ✅ APIルーター登録
 app.include_router(auth_router)
@@ -22,6 +32,11 @@ app.include_router(search_router)
 @app.get("/")
 def read_root():
     return {"message": "Hello, FastAPI!"}
+
+# ✅ /test エンドポイント
+@app.get("/test")
+def test_connection():
+    return {"status": "ok", "message": "FastAPI is connected!"}
 
 # ✅ Swagger UI を Bearer 認証に対応させる
 def custom_openapi():
