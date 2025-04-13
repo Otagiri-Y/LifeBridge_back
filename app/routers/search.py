@@ -120,7 +120,7 @@ def evaluate_score(user, pref, orient, job, company, company_mind):
 # ---------------------------
 # エンドポイント実装
 # ---------------------------
-@router.get("/api/user/search", response_model=JobSchema)
+@router.get("/api/user/search", response_model=List[JobSchema])
 def search_jobs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -138,6 +138,8 @@ def search_jobs(
             continue
         mind = classify_company_mind(company.operating_cf, company.investing_cf, company.financing_cf)
         score = evaluate_score(user, pref, orient, job, company, mind)
+        # ここで一時的に company_name を job に追加！
+        setattr(job, "company_name", company.company_name)
         job_scores.append((score, job))
 
     if orient and orient.work_purpose == "収入確保":
@@ -155,4 +157,5 @@ def search_jobs(
     if not sorted_jobs:
         raise HTTPException(status_code=404, detail="求人が見つかりませんでした。")
 
-    return sorted_jobs[0][1]
+    top_jobs = [job for _, job in sorted_jobs[:3]]
+    return top_jobs

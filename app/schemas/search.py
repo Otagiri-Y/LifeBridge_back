@@ -4,6 +4,7 @@ from typing import Optional
 class JobSchema(BaseModel):
     job_id: int
     company_id: int
+    company_name: Optional[str]  # ← 追加！
     job_title: str
     company_job_type: Optional[str]
     job_description: Optional[str]
