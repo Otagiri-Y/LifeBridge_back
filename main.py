@@ -7,6 +7,7 @@ from app.routers.job_type import router as job_type_router
 from app.routers.job_type_detail import router as job_type_detail_router
 from app.routers.matching import router as matching_router
 from app.routers.search import router as search_router
+from app.routers.check_auth import router as check_auth_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -28,6 +29,7 @@ app.include_router(job_type_router)
 app.include_router(job_type_detail_router)
 app.include_router(matching_router)
 app.include_router(search_router)
+app.include_router(check_auth_router)
 
 @app.get("/")
 def read_root():
