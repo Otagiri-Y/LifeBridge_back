@@ -9,13 +9,15 @@ from app.routers.matching import router as matching_router
 from app.routers.search import router as search_router
 from app.routers.check_auth import router as check_auth_router
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 app = FastAPI()
 
 # CORSの設定（Next.js が localhost:3000 で動作している前提）
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[frontend_origin],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
