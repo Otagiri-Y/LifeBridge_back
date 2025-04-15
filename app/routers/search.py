@@ -138,8 +138,24 @@ def search_jobs(
             continue
         mind = classify_company_mind(company.operating_cf, company.investing_cf, company.financing_cf)
         score = evaluate_score(user, pref, orient, job, company, mind)
-        # ここで一時的に company_name を job に追加！
+        
+        # 企業名を追加
         setattr(job, "company_name", company.company_name)
+        
+        # 給与を明示的に設定（必要に応じて）
+        if not hasattr(job, "salary") or job.salary is None or job.salary <= 0:
+            # APIサイドでのデフォルト値設定
+            # クライアント側で「応相談」と表示されるよう 0 を設定
+            setattr(job, "salary", 0)
+            
+        # スキル情報が欠落している場合は空文字列を設定（念のため）
+        if not hasattr(job, "skill_1") or job.skill_1 is None:
+            setattr(job, "skill_1", "")
+        if not hasattr(job, "skill_2") or job.skill_2 is None:
+            setattr(job, "skill_2", "")
+        if not hasattr(job, "skill_3") or job.skill_3 is None:
+            setattr(job, "skill_3", "")
+            
         job_scores.append((score, job))
 
     if orient and orient.work_purpose == "収入確保":
