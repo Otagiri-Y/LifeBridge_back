@@ -14,7 +14,7 @@ import os
 
 app = FastAPI()
 
-# CORSの設定（Next.js が localhost:3000 で動作している前提
+# CORSの設定（Next.js が localhost:3000 で動作している前提）
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
