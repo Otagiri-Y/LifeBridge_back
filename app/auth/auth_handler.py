@@ -3,7 +3,8 @@ from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer
 from app.config.settings import SECRET_KEY, ALGORITHM
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+# app/auth/auth_handler.py を修正
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 # JWTアクセストークンを作成（sub に user_id を含める）
 def create_access_token(data: dict, expires_delta: timedelta = None):
