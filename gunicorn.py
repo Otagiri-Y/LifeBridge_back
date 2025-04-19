@@ -13,3 +13,5 @@ print(f"Using PORT: {port}")
 bind = f"0.0.0.0:{port}"
 worker_class = "uvicorn.workers.UvicornWorker"
 workers = multiprocessing.cpu_count() * 2 + 1
+
+timeout = 600  # タイムアウト秒数を延長（デフォルトは30秒）
