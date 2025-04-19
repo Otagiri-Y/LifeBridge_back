@@ -2,45 +2,46 @@
 
 from typing import Dict, List
 from sentence_transformers import SentenceTransformer
-import os
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, VectorParams, Distance
-from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
+import os
 
-QDRANT_HOST = os.getenv("QDRANT_HOST")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-
-# Qdrantクライアント初期化
-qdrant = QdrantClient(
-    url=QDRANT_HOST,
-    api_key=QDRANT_API_KEY,
-)  # Azure用に後で変更可
-
-# 埋め込みモデルの初期化（軽量なall-MiniLM）
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
-# 使用するコレクション名（共通化）
+# 使用するコレクション名
 COLLECTION_NAME = "company_sections"
 
-# 初回のみ：コレクション作成
-try:
-    qdrant.get_collection(COLLECTION_NAME)
-except Exception:
-    qdrant.recreate_collection(
-        collection_name=COLLECTION_NAME,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+# 遅延初期化（必要なときだけ実行）
+def get_qdrant_client():
+    return QdrantClient(
+        url=os.getenv("QDRANT_HOST"),
+        api_key=os.getenv("QDRANT_API_KEY")
     )
+
+def get_model():
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+def recreate_collection_if_needed():
+    client = get_qdrant_client()
+    try:
+        client.get_collection(COLLECTION_NAME)
+    except Exception:
+        client.recreate_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        )
 
 # セクションデータ（6分類）をQdrantに登録
 def register_company_vectors(company_id: int, section_data: Dict[str, str]):
+    recreate_collection_if_needed()
+
+    model = get_model()
+    client = get_qdrant_client()
     points: List[PointStruct] = []
 
     for i, (section_key, text) in enumerate(section_data.items()):
         if not text.strip():
             continue
         vector = model.encode(text).tolist()
-        point_id = company_id * 10 + i  # 固定ルール（例：1社につき10刻み）
+        point_id = company_id * 10 + i
         points.append(
             PointStruct(
                 id=point_id,
@@ -50,34 +51,46 @@ def register_company_vectors(company_id: int, section_data: Dict[str, str]):
         )
 
     if points:
-        qdrant.upsert(collection_name=COLLECTION_NAME, points=points)
+        client.upsert(collection_name=COLLECTION_NAME, points=points)
 
+# ユーザーの入力を結合して検索用テキストを作成
 def build_user_query_text(orientation, preferences) -> str:
     parts = []
     if orientation:
-        parts.append(orientation.work_purpose or "")
-        parts.append(orientation.ideal_role or "")
-        parts.append(orientation.personal_values or "")
-        parts.append(orientation.contribute or "")
+        parts.extend([
+            orientation.work_purpose or "",
+            orientation.ideal_role or "",
+            orientation.personal_values or "",
+            orientation.contribute or ""
+        ])
     if preferences:
-        parts.append(preferences.atmosphere or "")
-        parts.append(preferences.age_group or "")
-        parts.append(preferences.work_style or "")
-    return " ".join([p for p in parts if p.strip()])
+        parts.extend([
+            preferences.atmosphere or "",
+            preferences.age_group or "",
+            preferences.work_style or ""
+        ])
+    return " ".join(p for p in parts if p.strip())
 
+# 類似企業検索（IDのみ）
 def search_similar_companies_from_qdrant(query_text: str, top_k: int = 5) -> list[int]:
+    model = get_model()
+    client = get_qdrant_client()
     query_vector = model.encode(query_text).tolist()
-    search_result = qdrant.search(
+
+    search_result = client.search(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
-        limit=top_k,
+        limit=top_k
     )
-    company_ids = list({hit.payload["company_id"] for hit in search_result})
-    return company_ids
+    return list({hit.payload["company_id"] for hit in search_result})
 
+# 類似企業検索（スコア付き）
 def search_similar_companies_from_qdrant_with_score(query_text: str, top_k: int = 5) -> List[dict]:
+    model = get_model()
+    client = get_qdrant_client()
     query_vector = model.encode(query_text).tolist()
-    search_result = qdrant.search(
+
+    search_result = client.search(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
         limit=top_k,
@@ -91,9 +104,5 @@ def search_similar_companies_from_qdrant_with_score(query_text: str, top_k: int 
         cid = hit.payload["company_id"]
         if cid not in seen:
             seen.add(cid)
-            results.append({
-                "company_id": cid,
-                "score": hit.score
-            })
+            results.append({"company_id": cid, "score": hit.score})
     return results
-
