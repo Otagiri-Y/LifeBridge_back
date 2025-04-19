@@ -9,6 +9,10 @@ from app.db.session import get_db
 from app.auth.dependencies import get_current_user
 from typing import List
 from app.schemas.search import JobSchema
+from app.services.vector_store import (
+    build_user_query_text,
+    search_similar_companies_from_qdrant_with_score
+)
 
 router = APIRouter()
 
@@ -88,7 +92,7 @@ def classify_company_mind(operating_cf, investing_cf, financing_cf):
 # ---------------------------
 # スコア計算
 # ---------------------------
-def evaluate_score(user, pref, orient, job, company, company_mind):
+def evaluate_score(user, pref, orient, job, company, company_mind, vector_score: float) -> float:
     score = 0
 
     if user.job_type == job.company_job_type:
@@ -111,10 +115,11 @@ def evaluate_score(user, pref, orient, job, company, company_mind):
             score += 1
         if orient.personal_values in (company.corporate_philosophy or "") or fuzzy_match(orient.personal_values, company.corporate_philosophy or "", value_keywords):
             score += 1
-        # 企業マインドとの相性
         if any(k in (orient.personal_values or "") for k in mind_keywords.get(company_mind, [])):
             score += 1
 
+    # ✅ ベクトルスコアを最大5点満点で加点（Cosine距離スコアを直接使用）
+    score += vector_score * 5
     return score
 
 # ---------------------------
@@ -129,7 +134,14 @@ def search_jobs(
     pref = db.query(UserPreferences).filter(UserPreferences.user_id == user.user_id).first()
     orient = db.query(UserOrientation).filter(UserOrientation.user_id == user.user_id).first()
 
-    jobs = db.query(Job).all()
+    query_text = build_user_query_text(orient, pref)
+    print("ユーザーのクエリ文:", query_text)
+
+    similar_companies_with_score = search_similar_companies_from_qdrant_with_score(query_text, top_k=5)
+    similar_company_ids = [item["company_id"] for item in similar_companies_with_score]
+    print("類似企業ID（ベクトル検索）:", similar_company_ids)
+
+    jobs = db.query(Job).filter(Job.company_id.in_(similar_company_ids)).all()
     job_scores = []
 
     for job in jobs:
@@ -137,41 +149,22 @@ def search_jobs(
         if not company:
             continue
         mind = classify_company_mind(company.operating_cf, company.investing_cf, company.financing_cf)
-        score = evaluate_score(user, pref, orient, job, company, mind)
-        
-        # 企業名を追加
+
+        # ✅ 類似スコアを取り出す（なければ0）
+        vector_score = next((item["score"] for item in similar_companies_with_score if item["company_id"] == company.company_id), 0.0)
+        score = evaluate_score(user, pref, orient, job, company, mind, vector_score)
+
         setattr(job, "company_name", company.company_name)
-        
-        # 給与を明示的に設定（必要に応じて）
-        if not hasattr(job, "salary") or job.salary is None or job.salary <= 0:
-            # APIサイドでのデフォルト値設定
-            # クライアント側で「応相談」と表示されるよう 0 を設定
-            setattr(job, "salary", 0)
-            
-        # スキル情報が欠落している場合は空文字列を設定（念のため）
-        if not hasattr(job, "skill_1") or job.skill_1 is None:
-            setattr(job, "skill_1", "")
-        if not hasattr(job, "skill_2") or job.skill_2 is None:
-            setattr(job, "skill_2", "")
-        if not hasattr(job, "skill_3") or job.skill_3 is None:
-            setattr(job, "skill_3", "")
-            
+        setattr(job, "salary", job.salary or 0)
+        setattr(job, "skill_1", job.skill_1 or "")
+        setattr(job, "skill_2", job.skill_2 or "")
+        setattr(job, "skill_3", job.skill_3 or "")
+
+        print(f"[{job.job_id}] {company.company_name} → 総合スコア: {score:.2f}（ベクトルスコア: {vector_score:.4f}）")
         job_scores.append((score, job))
 
-    if orient and orient.work_purpose == "収入確保":
-        sorted_jobs = sorted(job_scores, key=lambda x: (-x[0], -x[1].salary if x[1].salary else 0, x[1].job_id))
-    else:
-        sorted_jobs = sorted(
-            job_scores,
-            key=lambda x: (
-                -x[0],
-                0 if orient and orient.work_purpose == x[1].employment_purpose else 1,
-                x[1].job_id
-            )
-        )
-
+    sorted_jobs = sorted(job_scores, key=lambda x: -x[0])
     if not sorted_jobs:
         raise HTTPException(status_code=404, detail="求人が見つかりませんでした。")
 
-    top_jobs = [job for _, job in sorted_jobs[:3]]
-    return top_jobs
+    return [job for _, job in sorted_jobs[:3]]

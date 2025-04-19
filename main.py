@@ -9,6 +9,7 @@ from app.routers.matching import router as matching_router
 from app.routers.search import router as search_router
 from app.routers.check_auth import router as check_auth_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers.upload import router as upload_router
 import os
 
 app = FastAPI()
@@ -17,7 +18,7 @@ app = FastAPI()
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin],
+    allow_origins=["*"], #元々はfrontend_origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,6 +33,7 @@ app.include_router(job_type_detail_router)
 app.include_router(matching_router)
 app.include_router(search_router)
 app.include_router(check_auth_router)
+app.include_router(upload_router)
 
 @app.get("/")
 def read_root():
