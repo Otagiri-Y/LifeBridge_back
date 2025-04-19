@@ -1,7 +1,6 @@
 # app/services/vector_store.py
 
 from typing import Dict, List
-from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, VectorParams, Distance
 import os
@@ -17,6 +16,7 @@ def get_qdrant_client():
     )
 
 def get_model():
+    from sentence_transformers import SentenceTransformer
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 def recreate_collection_if_needed():
