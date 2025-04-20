@@ -31,6 +31,10 @@ jobs:
       
       - name: Install dependencies
         run: pip install -r requirements.txt
+      
+      # 追加
+      - name: Set execute permission for startup.sh
+        run: chmod +x startup.sh
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
